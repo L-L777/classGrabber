@@ -148,7 +148,7 @@ function updateCoursesList(course) {
     newCourseEntry.innerHTML = `
         <input type="text" name="kcrwdm" value="${course.kcrwdm}" readonly>
         <input type="text" name="kcmc" value="${course.kcmc}" readonly>
-        <input type="text" name="teacher" value="${course.teaxm}" readonly>
+        <input type="text" name="teacher" value="${course.teacher}" readonly>
         <button type="button" class="btn remove-course" onclick="removeCourse(this)">-</button>
     `;
     coursesContainer.appendChild(newCourseEntry);
