@@ -42,7 +42,10 @@
                     <tr>
                         <th>课程ID</th>
                         <th>课程名称</th>
+                        <th>上课时间及注意事项</th>
                         <th>老师名字</th>
+                        <th>课程类型(代码)</th>
+                        <th>人数限制</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -51,7 +54,10 @@
                     <tr>
                         <td>{{ course.kcrwdm }}</td>
                         <td>{{ course.kcmc }}</td>
+                        <td>{{ course.xmmc }}</td>
                         <td>{{ course.teamx }}</td>
+                        <td>{{ course.pkrs }}</td>
+                        <td>{{ course.kcdlmc }}({{ course.kcdm }})</td>
                         <td>
                             <form action="{{ url_for('add_course') }}" method="post">
                                 <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
@@ -70,9 +76,10 @@
             <button type="button" class="btn" id="start-qk-btn">开始抢课</button>
             <button type="button" class="btn" id="stop-qk-btn">停止抢课</button>
         </div>
-
+        <h3>日志</h3>
+        <p>日志只显示最后100行，完整日志请查看程序 logs 目录下的 latest.log</p>
         <div class="logs">
-            <h3>日志</h3>
+            
             <pre id="log-container">{{ logs | safe }}</pre>
         </div>
     </div>

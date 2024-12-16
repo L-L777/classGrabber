@@ -181,8 +181,8 @@ def index():
     logs = ""
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
-            logs = log_file.read()
-    return render_template("index.html", config=config, logs=logs)
+            logs = log_file.readlines()[-100:]  # 读取最后100行
+    return render_template("index.html", config=config, logs="".join(logs))
 
 
 # 更新配置
@@ -262,13 +262,12 @@ def stopGrabCourseRoute():
     return jsonify({"message": "抢课已停止"}), 200
 
 
-# 获取最新日志
 @app.route("/latest_log", methods=["GET"])
 def latest_log():
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
-            logs = log_file.read()
-        return jsonify({"logs": logs})
+            logs = log_file.readlines()[-100:]  # 读取最后100行
+        return jsonify({"logs": "".join(logs)})
     return jsonify({"logs": ""})
 
 

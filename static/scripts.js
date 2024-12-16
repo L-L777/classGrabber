@@ -104,7 +104,10 @@ function updateAvailableCourses(courses) {
         row.innerHTML = `
             <td>${course.kcrwdm}</td>
             <td>${course.kcmc}</td>
+            <td>${course.xmmc}</td>
             <td>${course.teaxm || '未知'}</td>
+            <td>${course.kcdlmc}(${course.kcdm})</td>
+            <td>${course.pkrs}</td>
             <td>
                 <form id="add-course-form-${course.kcrwdm}" class="add-course-form">
                     <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
