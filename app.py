@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import random
 import string
+import sys
 
 app = Flask(__name__)
 app.secret_key = "".join(
@@ -276,5 +277,13 @@ def open_browser():
 
 
 if __name__ == "__main__":
+    is_debug = False
+    if len(sys.argv) > 1 :
+        if len(sys.argv) > 2 or sys.argv[1] != 'debug':
+            print("错误的参数，要么不使用参数，要么仅允许 `debug` 作为唯一的参数，例如：")
+            print(f"  python {sys.argv[0]}")
+            print(f"  python {sys.argv[0]} debug")
+            exit(1)
+        is_debug = True
     open_browser()
-    app.run(debug=True)
+    app.run(debug=is_debug)
