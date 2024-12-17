@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import random
 import string
+import sys
 
 app = Flask(__name__)
 app.secret_key = "".join(
@@ -234,13 +235,13 @@ def delete_course():
     kcrwdm = request.form.get("kcrwdm")
 
     if not kcrwdm:
-        return jsonify({"error": "课程ID不能为空"}), 400
+        return jsonify({"success": "课程已删除"}), 200
 
     # 查找并删除课程
     courses = [course for course in config["courses"] if course["kcrwdm"] != kcrwdm]
 
     if len(courses) == len(config["courses"]):
-        return jsonify({"error": "课程未找到"}), 404
+        return jsonify({"success": "课程已删除"}), 200
 
     config["courses"] = courses
     save_config(config)
@@ -276,5 +277,14 @@ def open_browser():
 
 
 if __name__ == "__main__":
-    open_browser()
-    app.run(debug=True)
+    is_debug = False
+    if len(sys.argv) > 1 :
+        if len(sys.argv) > 2 or sys.argv[1] != 'debug':
+            print("错误的参数，要么不使用参数，要么仅允许 `debug` 作为唯一的参数，例如：")
+            print(f"  python {sys.argv[0]}")
+            print(f"  python {sys.argv[0]} debug")
+            exit(1)
+        is_debug = True
+    if not is_debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+        open_browser()
+    app.run(debug=is_debug)

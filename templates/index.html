@@ -9,6 +9,25 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    <dialog id="dialog" class="dialog">
+        <div class="dialog-body">
+            <div class="dialog-header">
+                <div class="dialog-title"></div>
+                <div class="dialog-close" onclick="document.querySelector('#dialog').close()">&times;</div>
+            </div>
+            <div class="dialog-content"></div>
+        </div>
+    </dialog>
+    <dialog id="confirm-dialog" class="dialog confirm">
+        <div class="dialog-body">
+            <div class="dialog-header">
+                <div class="dialog-title"></div>
+            </div>
+            <div class="dialog-content"></div>
+            <button class="btn" id="confirm-dialog-yes">是</button>
+            <button class="btn" id="confirm-dialog-no">否</button>
+        </div>
+    </dialog>
     <div class="container">
         <img src="{{ url_for('static', filename='favicon.png') }}" height="200px" width="200px"></img>
         <h1>GDUT抢课助手：配置管理</h1>
