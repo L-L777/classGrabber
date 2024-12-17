@@ -1,4 +1,44 @@
-document.addEventListener("DOMContentLoaded", function() {
+const showDialog = (title, msg) => {
+    const dialog = document.querySelector('#dialog');
+    const dialogTitle = document.querySelector('#dialog .dialog-title');
+    const dialogBody = document.querySelector('#dialog .dialog-content');
+    dialogTitle.textContent = title;
+    dialogBody.textContent = msg;
+    dialog.showModal();
+}
+const showConfirmDialog = (title, msg) => {
+    const dialog = document.querySelector('#confirm-dialog');
+    const dialogTitle = document.querySelector('#confirm-dialog .dialog-title');
+    const dialogBody = document.querySelector('#confirm-dialog .dialog-content');
+    const yes = document.querySelector('#confirm-dialog-yes');
+    const no = document.querySelector('#confirm-dialog-no');
+    const promise = new Promise(res => {
+        const yesCallback = () => {
+            res(true);
+            clearCallback();
+        };
+        const noCallback = () => {
+            res(false);
+            clearCallback();
+        };
+        const clearCallback = () => {
+            console.log('clear callback');
+            yes.removeEventListener('click', yesCallback);
+            no.removeEventListener('click', noCallback);
+            dialog.close();
+        }
+        yes.addEventListener('click', yesCallback);
+        no.addEventListener('click', noCallback);
+    });
+    
+    dialogTitle.textContent = title;
+    dialogBody.textContent = msg;
+    dialog.showModal();
+    return promise;
+}
+
+
+document.addEventListener("DOMContentLoaded", function () {
     document.querySelector(".add-course").addEventListener("click", function() {
         addCourseEntry();
     });
@@ -21,11 +61,11 @@ function addCourseEntry() {
     checkCoursesCount();
 }
 
-function removeCourse(button) {
+async function removeCourse(button) {
     const courseEntry = button.parentElement;
     const kcrwdm = courseEntry.querySelector('input[name="kcrwdm"]').value;
 
-    if (!confirm(`确定要删除课程ID为 ${kcrwdm} 的课程吗？`)) {
+    if (!await showConfirmDialog('提示', `确定要删除课程ID为 ${kcrwdm} 的课程吗？`)) {
         return;
     }
 
@@ -39,16 +79,16 @@ function removeCourse(button) {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.error);
+                showDialog('错误', data.error);
             } else {
                 courseEntry.remove();
                 checkCoursesCount();
-                alert('课程删除成功');
+                showDialog('信息', '课程删除成功');
             }
         })
         .catch(error => {
             console.error('删除课程失败:', error);
-            alert('删除课程失败，请查看控制台错误信息。');
+            showDialog('错误', '删除课程失败，请查看控制台错误信息。');
         });
 }
 
@@ -70,7 +110,7 @@ function checkCoursesCount() {
 function fetchCourses() {
     const cookie = document.getElementById("cookie").value;
     if (!cookie) {
-        alert("请先输入 Cookie");
+        showDialog('提示', "请先输入 Cookie");
         return;
     }
 
@@ -84,14 +124,14 @@ function fetchCourses() {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.error);
+                showDialog('错误', data.error);
             } else {
                 updateAvailableCourses(data.available_courses);
             }
         })
         .catch(error => {
             console.error('获取课程列表失败:', error);
-            alert('获取课程列表失败，请查看控制台错误信息。');
+            showDialog('错误', '获取课程列表失败，请查看控制台错误信息。');
         });
 }
 
@@ -132,15 +172,15 @@ function addCourse(button) {
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                alert(data.error);
+                showDialog('错误', data.error);
             } else {
-                alert('课程添加成功');
+                showDialog('信息', '课程添加成功');
                 updateCoursesList(data);
             }
         })
         .catch(error => {
             console.error('添加课程失败:', error);
-            alert('添加课程失败，请查看控制台错误信息。');
+            showDialog('错误', '添加课程失败，请查看控制台错误信息。');
         });
 }
 
@@ -164,11 +204,11 @@ function start() {
         })
         .then(response => response.json())
         .then(data => {
-            alert(data.message);
+            showDialog('信息', data.message);
         })
         .catch(error => {
             console.error('启动抢课失败:', error);
-            alert('启动抢课失败，请查看控制台错误信息。');
+            showDialog('错误', '启动抢课失败，请查看控制台错误信息。');
         });
 }
 
@@ -178,11 +218,11 @@ function stop() {
         })
         .then(response => response.json())
         .then(data => {
-            alert(data.message);
+            showDialog('信息', data.message);
         })
         .catch(error => {
             console.error('停止抢课失败:', error);
-            alert('停止抢课失败，请查看控制台错误信息。');
+            showDialog('错误', '停止抢课失败，请查看控制台错误信息。');
         });
 }
 
