@@ -285,5 +285,6 @@ if __name__ == "__main__":
             print(f"  python {sys.argv[0]} debug")
             exit(1)
         is_debug = True
-    open_browser()
+    if not is_debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+        open_browser()
     app.run(debug=is_debug)
