@@ -283,7 +283,7 @@ if __name__ == "__main__":
             print("错误的参数，要么不使用参数，要么仅允许 `debug` 作为唯一的参数，例如：")
             print(f"  python {sys.argv[0]}")
             print(f"  python {sys.argv[0]} debug")
-            exit(1)
+            sys.exit(1)
         is_debug = True
     if not is_debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
         open_browser()
