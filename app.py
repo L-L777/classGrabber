@@ -235,13 +235,13 @@ def delete_course():
     kcrwdm = request.form.get("kcrwdm")
 
     if not kcrwdm:
-        return jsonify({"error": "课程ID不能为空"}), 400
+        return jsonify({"success": "课程已删除"}), 200
 
     # 查找并删除课程
     courses = [course for course in config["courses"] if course["kcrwdm"] != kcrwdm]
 
     if len(courses) == len(config["courses"]):
-        return jsonify({"error": "课程未找到"}), 404
+        return jsonify({"success": "课程已删除"}), 200
 
     config["courses"] = courses
     save_config(config)
