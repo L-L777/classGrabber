@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import random
 import string
@@ -10,8 +9,23 @@ from typing import Any
 
 import httpx
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+from pydantic import BaseModel
 
-ConfigType = dict[str, Any]
+
+class Course(BaseModel):
+    kcrwdm: int
+    kcmc: str
+    teacher: str
+
+
+class Config(BaseModel):
+    class AccountConfig(BaseModel):
+        cookie: str = ""
+
+    account: AccountConfig = AccountConfig()
+    delay: float = 0.5
+    courses: list[Course] = []
+
 
 app = Flask(__name__)
 app.secret_key = "".join(
@@ -30,20 +44,22 @@ grab_course_task = None
 
 
 # 读取配置
-def load_config() -> ConfigType:
+def load_config() -> Config:
     if not os.path.exists(config_path):
-        default: ConfigType = {"account": {"cookie": ""}, "delay": 0.5, "courses": []}
+        default = Config()
         save_config(default)
         return default
 
     with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        json = f.read()
+        return Config.model_validate_json(json)
 
 
 # 保存配置
-def save_config(config: ConfigType) -> None:
+def save_config(config: Config) -> None:
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=4)
+        json = config.model_dump_json(indent=4)
+        f.write(json)
 
 
 startup_time = datetime.now()
@@ -100,20 +116,26 @@ def add_course() -> Any:
     if not kcrwdm or not kcmc:
         return jsonify({"error": "课程ID和课程名称不能为空"}), 400
 
+    try:
+        kcrwdm = int(kcrwdm)
+    except ValueError:
+        return jsonify({"error": "无效课程 ID"}), 400
+
     # 更新配置
-    course_exists = any(course["kcrwdm"] == kcrwdm for course in config["courses"])
+    course_exists = any(course.kcrwdm == kcrwdm for course in config.courses)
     if course_exists:
         return jsonify({"error": "课程已经存在"}), 400
 
     # 添加课程到配置
-    config["courses"].append({"kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
+    course = Course(kcrwdm=kcrwdm, kcmc=kcmc, teacher=teacher)
+    config.courses.append(course)
     save_config(config)
     log_message(f"添加课程成功，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}")
     return jsonify({"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
 
 
 # 抢课功能
-async def grab_course(kcrwdm: str, kcmc: str, teacher: str, cookie: str) -> bool:
+async def grab_course(course: Course, cookie: str) -> bool:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -133,13 +155,13 @@ async def grab_course(kcrwdm: str, kcmc: str, teacher: str, cookie: str) -> bool
         "Sec-Fetch-Site": "same-origin",
     }
 
-    data = {"kcrwdm": kcrwdm, "kcmc": kcmc}
+    data = {"kcrwdm": str(course.kcrwdm), "kcmc": course.kcmc}
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, data=data)
         log_message(
-            f"抢课请求发送，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}, 响应: {response.text}"
+            f"抢课请求发送，课程ID: {course.kcrwdm}, 名称: {course.kcmc}, 老师: {course.teacher}, 响应: {response.text}"
         )
         if "您已经选了该门课程" in response.text:
             return True
@@ -150,21 +172,18 @@ async def grab_course(kcrwdm: str, kcmc: str, teacher: str, cookie: str) -> bool
 
 
 # 运行抢课任务
-async def start_grab_course_task(config: ConfigType) -> None:
-    finished = set[str]()
-    for course in config["courses"]:
-        if len(finished) == len(config["courses"]):
+async def start_grab_course_task(config: Config) -> None:
+    finished = set[int]()
+    for course in config.courses:
+        if len(finished) == len(config.courses):
             stop_grab_course()
             await asyncio.sleep(3)
             log_message("抢课完成！")
-        if await grab_course(
-            course["kcrwdm"],
-            course["kcmc"],
-            course["teacher"],
-            config["account"]["cookie"],
-        ):
-            finished.add(course["kcrwdm"])
-        await asyncio.sleep(config["delay"])
+
+        if await grab_course(course, config.account.cookie):
+            finished.add(course.kcrwdm)
+
+        await asyncio.sleep(config.delay)
 
 
 # 启动抢课线程
@@ -195,19 +214,25 @@ def index() -> Any:
 # 更新配置
 @app.route("/update_config", methods=["POST"])
 def update_config():
-    cookie = request.form.get("cookie")
+    cookie = request.form.get("cookie") or ""
     delay = float(request.form.get("delay", 0.5))
-    courses = [
-        {
-            "kcrwdm": request.form.getlist("kcrwdm")[i],
-            "kcmc": request.form.getlist("kcmc")[i],
-            "teacher": request.form.getlist("teacher")[i],
-        }
-        for i in range(len(request.form.getlist("kcrwdm")))
-    ]
-    config["account"]["cookie"] = cookie
-    config["delay"] = delay
-    config["courses"] = courses
+
+    try:
+        courses = [
+            Course(kcrwdm=int(kcrwdm), kcmc=kcmc, teacher=teacher)
+            for kcrwdm, kcmc, teacher in zip(
+                request.form.getlist("kcrwdm"),
+                request.form.getlist("kcmc"),
+                request.form.getlist("teacher"),
+            )
+        ]
+    except ValueError:
+        return {"error": "参数解析失败"}, 400
+
+    config.account.cookie = cookie
+    config.delay = delay
+    config.courses = courses
+
     save_config(config)
     log_message("配置已更新")
     return redirect(url_for("index"))
@@ -222,7 +247,7 @@ async def fetch_courses_endpoint():
         return jsonify({"error": "Cookie 不能为空"}), 400
 
     # 保存 cookie 到配置文件
-    config["account"]["cookie"] = cookie
+    config.account.cookie = cookie
     save_config(config)
     log_message(f"Cookie 已保存: {cookie}")
 
@@ -241,15 +266,19 @@ def delete_course():
     kcrwdm = request.form.get("kcrwdm")
 
     if not kcrwdm:
-        return jsonify({"success": "课程已删除"}), 200
+        return jsonify({"error": "课程ID不能为空"}), 400
 
-    # 查找并删除课程
-    courses = [course for course in config["courses"] if course["kcrwdm"] != kcrwdm]
+    try:
+        kcrwdm = int(kcrwdm)
+    except ValueError:
+        return jsonify({"error": "无效课程 ID"}), 404
 
-    if len(courses) == len(config["courses"]):
-        return jsonify({"success": "课程已删除"}), 200
+    try:
+        course = next(course for course in config.courses if course.kcrwdm == kcrwdm)
+        config.courses.remove(course)
+    except StopIteration:
+        return jsonify({"error": "课程未找到"}), 404
 
-    config["courses"] = courses
     save_config(config)
     log_message(f"课程已删除，课程ID: {kcrwdm}")
     return jsonify({"success": True}), 200
