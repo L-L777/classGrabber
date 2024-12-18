@@ -45,7 +45,7 @@ def save_config(config: ConfigType) -> None:
         json.dump(config, f, ensure_ascii=False, indent=4)
 
 
-timestamp_log = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+startup_time = datetime.now()
 config = load_config()
 
 with open(log_file_path, "wt", encoding="utf8") as f:
@@ -56,13 +56,12 @@ with open(log_file_path, "wt", encoding="utf8") as f:
 def log_message(message: str) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"[{timestamp}] {message}"
+
     with open(log_file_path, "a", encoding="utf-8") as log_file:
         log_file.write(log_entry + "\n")
-    with open(
-        os.path.join(logs_dir, f"{timestamp_log.replace(':', '-')}.log"),
-        "a",
-        encoding="utf-8",
-    ) as new_log_file:
+
+    filename = startup_time.strftime("%Y-%m-%d %H-%M-%S")
+    with open(os.path.join(logs_dir, f"{filename}.log"), "a", encoding="utf-8") as new_log_file:
         new_log_file.write(log_entry + "\n")
 
 
