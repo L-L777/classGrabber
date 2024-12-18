@@ -55,41 +55,10 @@ function addCourseEntry() {
         <input type="text" name="kcrwdm" placeholder="课程ID" required>
         <input type="text" name="kcmc" placeholder="课程名称" required>
         <input type="text" name="teacher" placeholder="老师名字" required>
-        <button type="button" class="btn remove-course" onclick="removeCourse(this)">-</button>
+        <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
     `;
     document.getElementById("courses-container").appendChild(courseEntry);
     checkCoursesCount();
-}
-
-async function removeCourse(button) {
-    const courseEntry = button.parentElement;
-    const kcrwdm = courseEntry.querySelector('input[name="kcrwdm"]').value;
-
-    if (!await showConfirmDialog('提示', `确定要删除课程ID为 ${kcrwdm} 的课程吗？`)) {
-        return;
-    }
-
-    fetch('/delete_course', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({ 'kcrwdm': kcrwdm })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showDialog('错误', data.error);
-            } else {
-                courseEntry.remove();
-                checkCoursesCount();
-                showDialog('信息', '课程删除成功');
-            }
-        })
-        .catch(error => {
-            console.error('删除课程失败:', error);
-            showDialog('错误', '删除课程失败，请查看控制台错误信息。');
-        });
 }
 
 function checkCoursesCount() {
@@ -153,7 +122,7 @@ function updateAvailableCourses(courses) {
                     <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
                     <input type="hidden" name="kcmc" value="${course.kcmc}">
                     <input type="hidden" name="teacher" value="${course.teaxm || '未知'}">
-                    <button type="button" class="btn add-course-btn" onclick="addCourse(this)">添加</button>
+                    <button type="button" class="btn add-course-btn" onclick="this.parentElement.remove()">添加</button>
                 </form>
             </td>
         `;
@@ -192,7 +161,7 @@ function updateCoursesList(course) {
         <input type="text" name="kcrwdm" value="${course.kcrwdm}" readonly>
         <input type="text" name="kcmc" value="${course.kcmc}" readonly>
         <input type="text" name="teacher" value="${course.teacher}" readonly>
-        <button type="button" class="btn remove-course" onclick="removeCourse(this)">-</button>
+        <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
     `;
     coursesContainer.appendChild(newCourseEntry);
     checkCoursesCount();

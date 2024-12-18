@@ -46,7 +46,7 @@
                     <input type="text" name="kcrwdm" placeholder="课程ID" value="{{ course.kcrwdm }}" required>
                     <input type="text" name="kcmc" placeholder="课程名称" value="{{ course.kcmc }}" required>
                     <input type="text" name="teacher" placeholder="老师名字" value="{{ course.teacher }}" required>
-                    <button type="button" class="btn remove-course" onclick="removeCourse(this)">-</button>
+                    <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
                 </div>
                 {% endfor %}
             </div>

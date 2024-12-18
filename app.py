@@ -261,30 +261,6 @@ async def fetch_courses_endpoint():
         return jsonify({"error": f"获取课程列表失败: {e}"}), 500
 
 
-# 删除课程
-@app.route("/delete_course", methods=["POST"])
-def delete_course():
-    kcrwdm = request.form.get("kcrwdm")
-
-    if not kcrwdm:
-        return jsonify({"error": "课程ID不能为空"}), 400
-
-    try:
-        kcrwdm = int(kcrwdm)
-    except ValueError:
-        return jsonify({"error": "无效课程 ID"}), 404
-
-    try:
-        course = next(course for course in config.courses if course.kcrwdm == kcrwdm)
-        config.courses.remove(course)
-    except StopIteration:
-        return jsonify({"error": "课程未找到"}), 404
-
-    save_config(config)
-    log_message(f"课程已删除，课程ID: {kcrwdm}")
-    return jsonify({"success": True}), 200
-
-
 # 启动抢课
 @app.route("/start", methods=["POST"])
 async def start_grab_course_route():
