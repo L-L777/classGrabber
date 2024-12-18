@@ -68,8 +68,7 @@ def save_config(config: Config) -> None:
 startup_time = datetime.now()
 config = load_config()
 
-with open(log_file_path, "wt", encoding="utf8") as f:
-    pass
+open(log_file_path, "wt").close()
 
 
 # 写入日志
