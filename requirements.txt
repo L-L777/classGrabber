@@ -1,3 +1,4 @@
 secret
 flask[async]
 httpx
+pydantic>=2,<3

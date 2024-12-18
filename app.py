@@ -1,21 +1,40 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-import httpx
-import asyncio
-import threading
-import webbrowser
-import json
 import os
-import time
-from datetime import datetime
 import random
 import string
-import sys
+import time
+import webbrowser
+from argparse import ArgumentParser, BooleanOptionalAction
+from datetime import datetime
+from threading import Thread
+from typing import Any
+
+import httpx
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+from pydantic import BaseModel
+
+
+class Course(BaseModel):
+    kcrwdm: int
+    kcmc: str
+    teacher: str
+
+
+class Config(BaseModel):
+    class AccountConfig(BaseModel):
+        cookie: str = ""
+
+    account: AccountConfig = AccountConfig()
+    delay: float = 0.5
+    courses: list[Course] = []
+
 
 app = Flask(__name__)
 app.secret_key = "".join(
     random.choices(string.ascii_letters + string.digits, k=16)
 )  # 随机生成 secret_key
+
 config_path = "config.json"
+
 logs_dir = "logs"
 log_file_path = os.path.join(logs_dir, "latest.log")
 
@@ -24,47 +43,49 @@ if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
 # 全局变量用于抢课控制
-stop_flag = threading.Event()
+task_running = False
 
 
 # 读取配置
-def load_config():
-    if os.path.exists(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        save_config({"account": {"cookie": ""}, "delay": 0.5, "courses": []})
-        return {"account": {"cookie": ""}, "delay": 0.5, "courses": []}
+def load_config() -> Config:
+    if not os.path.exists(config_path):
+        default = Config()
+        save_config(default)
+        return default
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        json = f.read()
+        return Config.model_validate_json(json)
 
 
 # 保存配置
-def save_config(config):
+def save_config(config: Config) -> None:
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=4)
+        json = config.model_dump_json(indent=4)
+        f.write(json)
 
 
-timestamp_log = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+startup_time = datetime.now()
 config = load_config()
-with open(log_file_path, "wt", encoding="utf8") as f:
-    pass
+
+open(log_file_path, "wt").close()
 
 
 # 写入日志
-def log_message(message):
+def log_message(message: str) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"[{timestamp}] {message}"
+
     with open(log_file_path, "a", encoding="utf-8") as log_file:
         log_file.write(log_entry + "\n")
-    with open(
-        os.path.join(logs_dir, f"{timestamp_log.replace(':', '-')}.log"),
-        "a",
-        encoding="utf-8",
-    ) as new_log_file:
+
+    filename = startup_time.strftime("%Y-%m-%d %H-%M-%S")
+    with open(os.path.join(logs_dir, f"{filename}.log"), "a", encoding="utf-8") as new_log_file:
         new_log_file.write(log_entry + "\n")
 
 
 # 异步获取课程列表
-async def fetch_courses(cookie):
+async def fetch_courses(cookie: str) -> Any:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getDataList.action"
     headers = {
         "x-requested-with": "XMLHttpRequest",
@@ -88,7 +109,7 @@ async def fetch_courses(cookie):
 
 # 添加课程
 @app.route("/add_course", methods=["POST"])
-def add_course():
+def add_course() -> Any:
     kcrwdm = request.form.get("kcrwdm")
     kcmc = request.form.get("kcmc")
     teacher = request.form.get("teacher", "未知")  # 默认值为'未知'
@@ -97,22 +118,26 @@ def add_course():
     if not kcrwdm or not kcmc:
         return jsonify({"error": "课程ID和课程名称不能为空"}), 400
 
+    try:
+        kcrwdm = int(kcrwdm)
+    except ValueError:
+        return jsonify({"error": "无效课程 ID"}), 400
+
     # 更新配置
-    course_exists = any(course["kcrwdm"] == kcrwdm for course in config["courses"])
+    course_exists = any(course.kcrwdm == kcrwdm for course in config.courses)
     if course_exists:
         return jsonify({"error": "课程已经存在"}), 400
 
     # 添加课程到配置
-    config["courses"].append({"kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
+    course = Course(kcrwdm=kcrwdm, kcmc=kcmc, teacher=teacher)
+    config.courses.append(course)
     save_config(config)
     log_message(f"添加课程成功，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}")
-    return jsonify(
-        {"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher}
-    )
+    return jsonify({"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
 
 
 # 抢课功能
-def grabCourse(kcrwdm, kcmc, teacher, cookie):
+def grab_course(course: Course, cookie: str) -> bool:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -131,54 +156,58 @@ def grabCourse(kcrwdm, kcmc, teacher, cookie):
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-origin",
     }
-    data = f"kcrwdm={kcrwdm}&kcmc={kcmc}"
+
+    data = {"kcrwdm": str(course.kcrwdm), "kcmc": course.kcmc}
+
     try:
-        response = httpx.post(url, headers=headers, data=data.encode("utf-8"))
+        response = httpx.post(url, headers=headers, data=data)
         log_message(
-            f"抢课请求发送，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}, 响应: {response.text}"
+            f"抢课请求发送，课程ID: {course.kcrwdm}, 名称: {course.kcmc}, 老师: {course.teacher}, 响应: {response.text}"
         )
         if "您已经选了该门课程" in response.text:
             return True
     except Exception as e:
-        log_message(f"抢课失败: {str(e)}")
+        log_message(f"抢课失败: {e}")
+
+    return False
 
 
 # 运行抢课任务
-def startGrabCourseTask(config):
-    finished = set()
-    while not stop_flag.is_set():
-        for course in config["courses"]:
-            if len(finished) == len(config["courses"]):
-                stopGrabCouse()
+def start_grab_course_task(config: Config) -> None:
+    finished = set[int]()
+
+    while task_running:
+        for course in config.courses:
+            if len(finished) == len(config.courses):
+                stop_grab_course()
                 time.sleep(3)
                 log_message("抢课完成！")
-            if grabCourse(
-                course["kcrwdm"],
-                course["kcmc"],
-                course["teacher"],
-                config["account"]["cookie"],
-            ):
-                finished.add(course["kcrwdm"])
-            time.sleep(config["delay"])
+
+            if grab_course(course, config.account.cookie):
+                finished.add(course.kcrwdm)
+
+            time.sleep(config.delay)
 
 
 # 启动抢课线程
-def startGrabCourseThread():
-    global stop_flag
-    stop_flag.clear()
-    threading.Thread(target=startGrabCourseTask, args=(config,), daemon=True).start()
+def start_grab_course_thread() -> None:
+    global task_running
+    if not task_running:
+        task_running = True
+        Thread(target=start_grab_course_task, args=(config,), daemon=True).start()
     log_message("抢课已开始")
 
 
 # 停止抢课
-def stopGrabCouse():
-    stop_flag.set()
+def stop_grab_course() -> None:
+    global task_running
+    task_running = False
     log_message("抢课已停止")
 
 
 # 首页
 @app.route("/")
-def index():
+def index() -> Any:
     logs = ""
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
@@ -188,20 +217,26 @@ def index():
 
 # 更新配置
 @app.route("/update_config", methods=["POST"])
-def update_config():
-    cookie = request.form.get("cookie")
+def update_config() -> Any:
+    cookie = request.form.get("cookie") or ""
     delay = float(request.form.get("delay", 0.5))
-    courses = [
-        {
-            "kcrwdm": request.form.getlist("kcrwdm")[i],
-            "kcmc": request.form.getlist("kcmc")[i],
-            "teacher": request.form.getlist("teacher")[i],
-        }
-        for i in range(len(request.form.getlist("kcrwdm")))
-    ]
-    config["account"]["cookie"] = cookie
-    config["delay"] = delay
-    config["courses"] = courses
+
+    try:
+        courses = [
+            Course(kcrwdm=int(kcrwdm), kcmc=kcmc, teacher=teacher)
+            for kcrwdm, kcmc, teacher in zip(
+                request.form.getlist("kcrwdm"),
+                request.form.getlist("kcmc"),
+                request.form.getlist("teacher"),
+            )
+        ]
+    except ValueError:
+        return {"error": "参数解析失败"}, 400
+
+    config.account.cookie = cookie
+    config.delay = delay
+    config.courses = courses
+
     save_config(config)
     log_message("配置已更新")
     return redirect(url_for("index"))
@@ -209,14 +244,14 @@ def update_config():
 
 # 获取课程列表
 @app.route("/fetch_courses", methods=["POST"])
-async def fetch_courses_endpoint():
-    cookie = request.form.get("cookie").replace("b'", "").replace("'", "")
+async def fetch_courses_endpoint() -> Any:
+    cookie = request.form.get("cookie")
 
     if not cookie:
         return jsonify({"error": "Cookie 不能为空"}), 400
 
     # 保存 cookie 到配置文件
-    config["account"]["cookie"] = cookie
+    config.account.cookie = cookie
     save_config(config)
     log_message(f"Cookie 已保存: {cookie}")
 
@@ -225,66 +260,49 @@ async def fetch_courses_endpoint():
         available_courses = courses_data.get("rows", [])
         return jsonify({"available_courses": available_courses}), 200
     except Exception as e:
-        log_message(f"获取课程列表失败: {str(e)}")
-        return jsonify({"error": f"获取课程列表失败: {str(e)}"}), 500
-
-
-# 删除课程
-@app.route("/delete_course", methods=["POST"])
-def delete_course():
-    kcrwdm = request.form.get("kcrwdm")
-
-    if not kcrwdm:
-        return jsonify({"success": "课程已删除"}), 200
-
-    # 查找并删除课程
-    courses = [course for course in config["courses"] if course["kcrwdm"] != kcrwdm]
-
-    if len(courses) == len(config["courses"]):
-        return jsonify({"success": "课程已删除"}), 200
-
-    config["courses"] = courses
-    save_config(config)
-    log_message(f"课程已删除，课程ID: {kcrwdm}")
-    return jsonify({"success": True}), 200
+        log_message(f"获取课程列表失败: {e}")
+        return jsonify({"error": f"获取课程列表失败: {e}"}), 500
 
 
 # 启动抢课
 @app.route("/start", methods=["POST"])
-def startGrabCourseRoute():
-    startGrabCourseThread()
+async def start_grab_course_route() -> Any:
+    start_grab_course_thread()
     return jsonify({"message": "抢课已开始"}), 200
 
 
 # 停止抢课
 @app.route("/stop", methods=["POST"])
-def stopGrabCourseRoute():
-    stopGrabCouse()
+async def stop_grab_course_route() -> Any:
+    stop_grab_course()
     return jsonify({"message": "抢课已停止"}), 200
 
 
 @app.route("/latest_log", methods=["GET"])
-def latest_log():
-    if os.path.exists(log_file_path):
-        with open(log_file_path, "r", encoding="utf-8") as log_file:
-            logs = log_file.readlines()[-100:]  # 读取最后100行
-        return jsonify({"logs": "".join(logs)})
-    return jsonify({"logs": ""})
+def latest_log() -> Any:
+    if not os.path.exists(log_file_path):
+        return jsonify({"logs": ""})
+
+    with open(log_file_path, "r", encoding="utf-8") as log_file:
+        logs = log_file.readlines()[-100:]  # 读取最后100行
+
+    return jsonify({"logs": "".join(logs)})
 
 
-def open_browser():
+def open_browser() -> None:
     webbrowser.open_new("http://127.0.0.1:5000")
 
 
-if __name__ == "__main__":
-    is_debug = False
-    if len(sys.argv) > 1 :
-        if len(sys.argv) > 2 or sys.argv[1] != 'debug':
-            print("错误的参数，要么不使用参数，要么仅允许 `debug` 作为唯一的参数，例如：")
-            print(f"  python {sys.argv[0]}")
-            print(f"  python {sys.argv[0]} debug")
-            sys.exit(1)
-        is_debug = True
-    if not is_debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+def main() -> None:
+    parser = ArgumentParser()
+    parser.add_argument("--debug", default=False, action=BooleanOptionalAction)
+    args = parser.parse_args()
+
+    if not args.debug or not os.getenv("WERKZEUG_RUN_MAIN"):
         open_browser()
-    app.run(debug=is_debug)
+
+    app.run(debug=args.debug)
+
+
+if __name__ == "__main__":
+    main()
