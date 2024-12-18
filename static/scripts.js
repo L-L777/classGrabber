@@ -245,9 +245,4 @@ function startPolling() {
     setInterval(fetchLogs, 500); // 每0.5秒刷新一次
 }
 
-function startPolling() {
-    fetchLogs();
-    setInterval(fetchLogs, 500); // 每0.5秒刷新一次
-}
-
 window.onload = startPolling;
