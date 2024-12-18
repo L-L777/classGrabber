@@ -2,10 +2,10 @@ import json
 import os
 import random
 import string
-import sys
 import threading
 import time
 import webbrowser
+from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 
 import httpx
@@ -276,15 +276,16 @@ def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000")
 
 
-if __name__ == "__main__":
-    is_debug = False
-    if len(sys.argv) > 1 :
-        if len(sys.argv) > 2 or sys.argv[1] != 'debug':
-            print("错误的参数，要么不使用参数，要么仅允许 `debug` 作为唯一的参数，例如：")
-            print(f"  python {sys.argv[0]}")
-            print(f"  python {sys.argv[0]} debug")
-            sys.exit(1)
-        is_debug = True
-    if not is_debug or os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+def main() -> None:
+    parser = ArgumentParser()
+    parser.add_argument("--debug", default=False, action=BooleanOptionalAction)
+    args = parser.parse_args()
+
+    if not args.debug or os.getenv("WERKZEUG_RUN_MAIN") == "true":
         open_browser()
-    app.run(debug=is_debug)
+
+    app.run(debug=args.debug)
+
+
+if __name__ == "__main__":
+    main()
