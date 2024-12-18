@@ -319,7 +319,7 @@ def main() -> None:
     parser.add_argument("--debug", default=False, action=BooleanOptionalAction)
     args = parser.parse_args()
 
-    if not args.debug or os.getenv("WERKZEUG_RUN_MAIN") == "true":
+    if not args.debug or not os.getenv("WERKZEUG_RUN_MAIN"):
         open_browser()
 
     app.run(debug=args.debug)
