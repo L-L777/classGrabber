@@ -264,11 +264,13 @@ def stop_grab_course_route():
 
 @app.route("/latest_log", methods=["GET"])
 def latest_log():
-    if os.path.exists(log_file_path):
-        with open(log_file_path, "r", encoding="utf-8") as log_file:
-            logs = log_file.readlines()[-100:]  # 读取最后100行
-        return jsonify({"logs": "".join(logs)})
-    return jsonify({"logs": ""})
+    if not os.path.exists(log_file_path):
+        return jsonify({"logs": ""})
+
+    with open(log_file_path, "r", encoding="utf-8") as log_file:
+        logs = log_file.readlines()[-100:]  # 读取最后100行
+
+    return jsonify({"logs": "".join(logs)})
 
 
 def open_browser():
