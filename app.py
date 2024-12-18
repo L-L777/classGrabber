@@ -6,9 +6,12 @@ import string
 import webbrowser
 from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
+from typing import Any
 
 import httpx
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+
+ConfigType = dict[str, Any]
 
 app = Flask(__name__)
 app.secret_key = "".join(
@@ -27,7 +30,7 @@ grab_course_task = None
 
 
 # 读取配置
-def load_config():
+def load_config() -> ConfigType:
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -37,7 +40,7 @@ def load_config():
 
 
 # 保存配置
-def save_config(config):
+def save_config(config: ConfigType) -> None:
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=4)
 
@@ -50,7 +53,7 @@ with open(log_file_path, "wt", encoding="utf8") as f:
 
 
 # 写入日志
-def log_message(message):
+def log_message(message: str) -> None:
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_entry = f"[{timestamp}] {message}"
     with open(log_file_path, "a", encoding="utf-8") as log_file:
@@ -64,7 +67,7 @@ def log_message(message):
 
 
 # 异步获取课程列表
-async def fetch_courses(cookie):
+async def fetch_courses(cookie: str) -> Any:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getDataList.action"
     headers = {
         "x-requested-with": "XMLHttpRequest",
@@ -88,7 +91,7 @@ async def fetch_courses(cookie):
 
 # 添加课程
 @app.route("/add_course", methods=["POST"])
-def add_course():
+def add_course() -> Any:
     kcrwdm = request.form.get("kcrwdm")
     kcmc = request.form.get("kcmc")
     teacher = request.form.get("teacher", "未知")  # 默认值为'未知'
@@ -110,7 +113,7 @@ def add_course():
 
 
 # 抢课功能
-async def grab_course(kcrwdm, kcmc, teacher, cookie):
+async def grab_course(kcrwdm: str, kcmc: str, teacher: str, cookie: str) -> bool:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -129,10 +132,12 @@ async def grab_course(kcrwdm, kcmc, teacher, cookie):
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-origin",
     }
-    data = f"kcrwdm={kcrwdm}&kcmc={kcmc}"
+
+    data = {"kcrwdm": kcrwdm, "kcmc": kcmc}
+
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, data=data.encode("utf-8"))
+            response = await client.post(url, headers=headers, data=data)
         log_message(
             f"抢课请求发送，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}, 响应: {response.text}"
         )
@@ -141,10 +146,12 @@ async def grab_course(kcrwdm, kcmc, teacher, cookie):
     except Exception as e:
         log_message(f"抢课失败: {e}")
 
+    return False
+
 
 # 运行抢课任务
-async def start_grab_course_task(config):
-    finished = set()
+async def start_grab_course_task(config: ConfigType) -> None:
+    finished = set[str]()
     for course in config["courses"]:
         if len(finished) == len(config["courses"]):
             stop_grab_course()
@@ -161,14 +168,14 @@ async def start_grab_course_task(config):
 
 
 # 启动抢课线程
-def start_grab_course_thread():
+def start_grab_course_thread() -> None:
     global grab_course_task
     grab_course_task = asyncio.create_task(start_grab_course_task(config))
     log_message("抢课已开始")
 
 
 # 停止抢课
-def stop_grab_course():
+def stop_grab_course() -> None:
     global grab_course_task
     if grab_course_task:
         grab_course_task.cancel()
@@ -177,7 +184,7 @@ def stop_grab_course():
 
 # 首页
 @app.route("/")
-def index():
+def index() -> Any:
     logs = ""
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
@@ -209,7 +216,7 @@ def update_config():
 # 获取课程列表
 @app.route("/fetch_courses", methods=["POST"])
 async def fetch_courses_endpoint():
-    cookie = request.form.get("cookie").replace("b'", "").replace("'", "")
+    cookie = request.form.get("cookie")
 
     if not cookie:
         return jsonify({"error": "Cookie 不能为空"}), 400
