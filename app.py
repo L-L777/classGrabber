@@ -1,9 +1,8 @@
+import asyncio
 import json
 import os
 import random
 import string
-import threading
-import time
 import webbrowser
 from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
@@ -24,7 +23,7 @@ if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
 # 全局变量用于抢课控制
-stop_flag = threading.Event()
+grab_course_task = None
 
 
 # 读取配置
@@ -45,6 +44,7 @@ def save_config(config):
 
 timestamp_log = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 config = load_config()
+
 with open(log_file_path, "wt", encoding="utf8") as f:
     pass
 
@@ -106,13 +106,11 @@ def add_course():
     config["courses"].append({"kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
     save_config(config)
     log_message(f"添加课程成功，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}")
-    return jsonify(
-        {"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher}
-    )
+    return jsonify({"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
 
 
 # 抢课功能
-def grab_course(kcrwdm, kcmc, teacher, cookie):
+async def grab_course(kcrwdm, kcmc, teacher, cookie):
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -133,7 +131,8 @@ def grab_course(kcrwdm, kcmc, teacher, cookie):
     }
     data = f"kcrwdm={kcrwdm}&kcmc={kcmc}"
     try:
-        response = httpx.post(url, headers=headers, data=data.encode("utf-8"))
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, data=data.encode("utf-8"))
         log_message(
             f"抢课请求发送，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}, 响应: {response.text}"
         )
@@ -144,35 +143,35 @@ def grab_course(kcrwdm, kcmc, teacher, cookie):
 
 
 # 运行抢课任务
-def start_grab_course_task(config):
+async def start_grab_course_task(config):
     finished = set()
-    while not stop_flag.is_set():
-        for course in config["courses"]:
-            if len(finished) == len(config["courses"]):
-                stop_grab_course()
-                time.sleep(3)
-                log_message("抢课完成！")
-            if grab_course(
-                course["kcrwdm"],
-                course["kcmc"],
-                course["teacher"],
-                config["account"]["cookie"],
-            ):
-                finished.add(course["kcrwdm"])
-            time.sleep(config["delay"])
+    for course in config["courses"]:
+        if len(finished) == len(config["courses"]):
+            stop_grab_course()
+            await asyncio.sleep(3)
+            log_message("抢课完成！")
+        if await grab_course(
+            course["kcrwdm"],
+            course["kcmc"],
+            course["teacher"],
+            config["account"]["cookie"],
+        ):
+            finished.add(course["kcrwdm"])
+        await asyncio.sleep(config["delay"])
 
 
 # 启动抢课线程
 def start_grab_course_thread():
-    global stop_flag
-    stop_flag.clear()
-    threading.Thread(target=start_grab_course_task, args=(config,), daemon=True).start()
+    global grab_course_task
+    grab_course_task = asyncio.create_task(start_grab_course_task(config))
     log_message("抢课已开始")
 
 
 # 停止抢课
 def stop_grab_course():
-    stop_flag.set()
+    global grab_course_task
+    if grab_course_task:
+        grab_course_task.cancel()
     log_message("抢课已停止")
 
 
