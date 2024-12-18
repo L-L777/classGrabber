@@ -168,7 +168,7 @@ async def start_grab_course_task(config: ConfigType) -> None:
 
 
 # 启动抢课线程
-def start_grab_course_thread() -> None:
+def start_grab_course_background() -> None:
     global grab_course_task
     grab_course_task = asyncio.create_task(start_grab_course_task(config))
     log_message("抢课已开始")
@@ -258,7 +258,7 @@ def delete_course():
 # 启动抢课
 @app.route("/start", methods=["POST"])
 def start_grab_course_route():
-    start_grab_course_thread()
+    start_grab_course_background()
     return jsonify({"message": "抢课已开始"}), 200
 
 
