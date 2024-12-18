@@ -176,7 +176,7 @@ async def start_grab_course_task(config: Config) -> None:
     finished = set[int]()
     for course in config.courses:
         if len(finished) == len(config.courses):
-            stop_grab_course()
+            await stop_grab_course()
             await asyncio.sleep(3)
             log_message("抢课完成！")
 
@@ -187,14 +187,15 @@ async def start_grab_course_task(config: Config) -> None:
 
 
 # 启动抢课线程
-def start_grab_course_background() -> None:
+async def start_grab_course_background() -> None:
     global grab_course_task
-    grab_course_task = asyncio.create_task(start_grab_course_task(config))
+    if not grab_course_task:
+        grab_course_task = asyncio.create_task(start_grab_course_task(config))
     log_message("抢课已开始")
 
 
 # 停止抢课
-def stop_grab_course() -> None:
+async def stop_grab_course() -> None:
     global grab_course_task
     if grab_course_task:
         grab_course_task.cancel()
@@ -286,15 +287,15 @@ def delete_course():
 
 # 启动抢课
 @app.route("/start", methods=["POST"])
-def start_grab_course_route():
-    start_grab_course_background()
+async def start_grab_course_route():
+    await start_grab_course_background()
     return jsonify({"message": "抢课已开始"}), 200
 
 
 # 停止抢课
 @app.route("/stop", methods=["POST"])
-def stop_grab_course_route():
-    stop_grab_course()
+async def stop_grab_course_route():
+    await stop_grab_course()
     return jsonify({"message": "抢课已停止"}), 200
 
 
