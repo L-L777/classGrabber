@@ -216,7 +216,7 @@ def index() -> Any:
 
 # 更新配置
 @app.route("/update_config", methods=["POST"])
-def update_config():
+def update_config() -> Any:
     cookie = request.form.get("cookie") or ""
     delay = float(request.form.get("delay", 0.5))
 
@@ -243,7 +243,7 @@ def update_config():
 
 # 获取课程列表
 @app.route("/fetch_courses", methods=["POST"])
-async def fetch_courses_endpoint():
+async def fetch_courses_endpoint() -> Any:
     cookie = request.form.get("cookie")
 
     if not cookie:
@@ -265,20 +265,20 @@ async def fetch_courses_endpoint():
 
 # 启动抢课
 @app.route("/start", methods=["POST"])
-async def start_grab_course_route():
+async def start_grab_course_route() -> Any:
     start_grab_course_thread()
     return jsonify({"message": "抢课已开始"}), 200
 
 
 # 停止抢课
 @app.route("/stop", methods=["POST"])
-async def stop_grab_course_route():
+async def stop_grab_course_route() -> Any:
     stop_grab_course()
     return jsonify({"message": "抢课已停止"}), 200
 
 
 @app.route("/latest_log", methods=["GET"])
-def latest_log():
+def latest_log() -> Any:
     if not os.path.exists(log_file_path):
         return jsonify({"logs": ""})
 
@@ -288,7 +288,7 @@ def latest_log():
     return jsonify({"logs": "".join(logs)})
 
 
-def open_browser():
+def open_browser() -> None:
     webbrowser.open_new("http://127.0.0.1:5000")
 
 
