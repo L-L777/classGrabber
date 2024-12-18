@@ -112,7 +112,7 @@ def add_course():
 
 
 # 抢课功能
-def grabCourse(kcrwdm, kcmc, teacher, cookie):
+def grab_course(kcrwdm, kcmc, teacher, cookie):
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -144,15 +144,15 @@ def grabCourse(kcrwdm, kcmc, teacher, cookie):
 
 
 # 运行抢课任务
-def startGrabCourseTask(config):
+def start_grab_course_task(config):
     finished = set()
     while not stop_flag.is_set():
         for course in config["courses"]:
             if len(finished) == len(config["courses"]):
-                stopGrabCouse()
+                stop_grab_course()
                 time.sleep(3)
                 log_message("抢课完成！")
-            if grabCourse(
+            if grab_course(
                 course["kcrwdm"],
                 course["kcmc"],
                 course["teacher"],
@@ -163,15 +163,15 @@ def startGrabCourseTask(config):
 
 
 # 启动抢课线程
-def startGrabCourseThread():
+def start_grab_course_thread():
     global stop_flag
     stop_flag.clear()
-    threading.Thread(target=startGrabCourseTask, args=(config,), daemon=True).start()
+    threading.Thread(target=start_grab_course_task, args=(config,), daemon=True).start()
     log_message("抢课已开始")
 
 
 # 停止抢课
-def stopGrabCouse():
+def stop_grab_course():
     stop_flag.set()
     log_message("抢课已停止")
 
@@ -251,15 +251,15 @@ def delete_course():
 
 # 启动抢课
 @app.route("/start", methods=["POST"])
-def startGrabCourseRoute():
-    startGrabCourseThread()
+def start_grab_course_route():
+    start_grab_course_thread()
     return jsonify({"message": "抢课已开始"}), 200
 
 
 # 停止抢课
 @app.route("/stop", methods=["POST"])
-def stopGrabCourseRoute():
-    stopGrabCouse()
+def stop_grab_course_route():
+    stop_grab_course()
     return jsonify({"message": "抢课已停止"}), 200
 
 
