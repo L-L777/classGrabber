@@ -32,7 +32,9 @@ app = Flask(__name__)
 app.secret_key = "".join(
     random.choices(string.ascii_letters + string.digits, k=16)
 )  # 随机生成 secret_key
+
 config_path = "config.json"
+
 logs_dir = "logs"
 log_file_path = os.path.join(logs_dir, "latest.log")
 
@@ -41,7 +43,7 @@ if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
 # 全局变量用于抢课控制
-task_running = None
+task_running = False
 
 
 # 读取配置
