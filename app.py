@@ -31,12 +31,13 @@ grab_course_task = None
 
 # 读取配置
 def load_config() -> ConfigType:
-    if os.path.exists(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        save_config({"account": {"cookie": ""}, "delay": 0.5, "courses": []})
-        return {"account": {"cookie": ""}, "delay": 0.5, "courses": []}
+    if not os.path.exists(config_path):
+        default: ConfigType = {"account": {"cookie": ""}, "delay": 0.5, "courses": []}
+        save_config(default)
+        return default
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # 保存配置
