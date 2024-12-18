@@ -140,7 +140,7 @@ def grab_course(kcrwdm, kcmc, teacher, cookie):
         if "您已经选了该门课程" in response.text:
             return True
     except Exception as e:
-        log_message(f"抢课失败: {str(e)}")
+        log_message(f"抢课失败: {e}")
 
 
 # 运行抢课任务
@@ -225,8 +225,8 @@ async def fetch_courses_endpoint():
         available_courses = courses_data.get("rows", [])
         return jsonify({"available_courses": available_courses}), 200
     except Exception as e:
-        log_message(f"获取课程列表失败: {str(e)}")
-        return jsonify({"error": f"获取课程列表失败: {str(e)}"}), 500
+        log_message(f"获取课程列表失败: {e}")
+        return jsonify({"error": f"获取课程列表失败: {e}"}), 500
 
 
 # 删除课程
