@@ -1,10 +1,11 @@
-import asyncio
 import os
 import random
 import string
+import time
 import webbrowser
 from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
+from threading import Thread
 from typing import Any
 
 import httpx
@@ -40,7 +41,7 @@ if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
 # 全局变量用于抢课控制
-grab_course_task = None
+task_running = None
 
 
 # 读取配置
@@ -135,7 +136,7 @@ def add_course() -> Any:
 
 
 # 抢课功能
-async def grab_course(course: Course, cookie: str) -> bool:
+def grab_course(course: Course, cookie: str) -> bool:
     url = "https://jxfw.gdut.edu.cn/xsxklist!getAdd.action"
     headers = {
         "Host": "jxfw.gdut.edu.cn",
@@ -158,8 +159,7 @@ async def grab_course(course: Course, cookie: str) -> bool:
     data = {"kcrwdm": str(course.kcrwdm), "kcmc": course.kcmc}
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, data=data)
+        response = httpx.post(url, headers=headers, data=data)
         log_message(
             f"抢课请求发送，课程ID: {course.kcrwdm}, 名称: {course.kcmc}, 老师: {course.teacher}, 响应: {response.text}"
         )
@@ -172,33 +172,35 @@ async def grab_course(course: Course, cookie: str) -> bool:
 
 
 # 运行抢课任务
-async def start_grab_course_task(config: Config) -> None:
+def start_grab_course_task(config: Config) -> None:
     finished = set[int]()
-    for course in config.courses:
-        if len(finished) == len(config.courses):
-            await stop_grab_course()
-            await asyncio.sleep(3)
-            log_message("抢课完成！")
 
-        if await grab_course(course, config.account.cookie):
-            finished.add(course.kcrwdm)
+    while task_running:
+        for course in config.courses:
+            if len(finished) == len(config.courses):
+                stop_grab_course()
+                time.sleep(3)
+                log_message("抢课完成！")
 
-        await asyncio.sleep(config.delay)
+            if grab_course(course, config.account.cookie):
+                finished.add(course.kcrwdm)
+
+            time.sleep(config.delay)
 
 
 # 启动抢课线程
-async def start_grab_course_background() -> None:
-    global grab_course_task
-    if not grab_course_task:
-        grab_course_task = asyncio.create_task(start_grab_course_task(config))
+def start_grab_course_thread() -> None:
+    global task_running
+    if not task_running:
+        task_running = True
+        Thread(target=start_grab_course_task, args=(config,), daemon=True).start()
     log_message("抢课已开始")
 
 
 # 停止抢课
-async def stop_grab_course() -> None:
-    global grab_course_task
-    if grab_course_task:
-        grab_course_task.cancel()
+def stop_grab_course() -> None:
+    global task_running
+    task_running = False
     log_message("抢课已停止")
 
 
@@ -264,14 +266,14 @@ async def fetch_courses_endpoint():
 # 启动抢课
 @app.route("/start", methods=["POST"])
 async def start_grab_course_route():
-    await start_grab_course_background()
+    start_grab_course_thread()
     return jsonify({"message": "抢课已开始"}), 200
 
 
 # 停止抢课
 @app.route("/stop", methods=["POST"])
 async def stop_grab_course_route():
-    await stop_grab_course()
+    stop_grab_course()
     return jsonify({"message": "抢课已停止"}), 200
 
 
