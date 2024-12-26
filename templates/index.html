@@ -88,6 +88,18 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <div class="pagination">
+                <button class="btn page-btn" id="prev-page" disabled>&lt;</button>
+                <span id="page-info">第 <span id="current-page">1</span> 页，共 <span id="total-pages">1</span> 页</span>
+                <button class="btn page-btn" id="next-page">&gt;</button>
+                <select id="page-size" class="page-size-select">
+                    <option value="10">10条/页</option>
+                    <option value="20">20条/页</option>
+                    <option value="50">50条/页</option>
+                    <option value="100">100条/页</option>
+                    <option value="1000">1000条/页</option>
+                </select>
+            </div>
         </div>
 
         <div class="control-buttons">

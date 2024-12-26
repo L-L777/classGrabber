@@ -1,6 +1,12 @@
-venv
 __pycache__
 config.json
 logs/*
 app.build
 app.dist
+
+# venv
+venv
+bin
+pyvenv.cfg
+lib
+lib64

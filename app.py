@@ -100,8 +100,12 @@ async def fetch_courses(cookie: str) -> Any:
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-origin",
     }
-    body = {"sort": "kcrwdm", "order": "asc"}
     async with httpx.AsyncClient() as client:
+        body = {"sort": "kcrwdm", "order": "asc"}
+        response = await client.post(url, headers=headers, params=body)
+        response.raise_for_status()
+        total = response.json()['total']
+        body = {"sort": "kcrwdm", "order": "asc", "page": "1", "rows": str(total)}
         response = await client.post(url, headers=headers, params=body)
         response.raise_for_status()
         return response.json()
@@ -258,6 +262,7 @@ async def fetch_courses_endpoint() -> Any:
     try:
         courses_data = await fetch_courses(cookie)
         available_courses = courses_data.get("rows", [])
+        log_message(f"获取课程列表成功，共有 {courses_data['total']} 条记录，成功获取 {len(courses_data['rows'])} 条记录")
         return jsonify({"available_courses": available_courses}), 200
     except Exception as e:
         log_message(f"获取课程列表失败: {e}")

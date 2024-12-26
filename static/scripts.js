@@ -37,6 +37,10 @@ const showConfirmDialog = (title, msg) => {
     return promise;
 }
 
+// 添加分页相关的全局变量
+let currentPage = 1;
+let pageSize = 10;
+let allCourses = [];
 
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelector(".add-course").addEventListener("click", function() {
@@ -46,6 +50,31 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("start-qk-btn").addEventListener("click", start);
     document.getElementById("stop-qk-btn").addEventListener("click", stop);
     checkCoursesCount();
+
+    // 添加分页控件的事件监听
+    document.getElementById('prev-page').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            displayCurrentPage();
+            updatePagination();
+        }
+    });
+
+    document.getElementById('next-page').addEventListener('click', () => {
+        const totalPages = Math.ceil(allCourses.length / pageSize);
+        if (currentPage < totalPages) {
+            currentPage++;
+            displayCurrentPage();
+            updatePagination();
+        }
+    });
+
+    document.getElementById('page-size').addEventListener('change', (e) => {
+        pageSize = parseInt(e.target.value);
+        currentPage = 1; // 重置到第一页
+        displayCurrentPage();
+        updatePagination();
+    });
 });
 
 function addCourseEntry() {
@@ -105,10 +134,20 @@ function fetchCourses() {
 }
 
 function updateAvailableCourses(courses) {
+    allCourses = courses; // 保存所有课程数据
+    updatePagination();
+    displayCurrentPage();
+}
+
+function displayCurrentPage() {
     const tableBody = document.getElementById("available-courses-list");
     tableBody.innerHTML = ''; // 清空当前列表
 
-    courses.forEach(course => {
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, allCourses.length);
+    
+    for (let i = start; i < end; i++) {
+        const course = allCourses[i];
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${course.kcrwdm}</td>
@@ -122,12 +161,26 @@ function updateAvailableCourses(courses) {
                     <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
                     <input type="hidden" name="kcmc" value="${course.kcmc}">
                     <input type="hidden" name="teacher" value="${course.teaxm || '未知'}">
-                    <button type="button" class="btn add-course-btn" onclick="this.parentElement.remove()">添加</button>
+                    <button type="button" class="btn add-course-btn" onclick="addCourse(this)">添加</button>
                 </form>
             </td>
         `;
         tableBody.appendChild(row);
-    });
+    }
+}
+
+function updatePagination() {
+    const totalPages = Math.ceil(allCourses.length / pageSize);
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+    const currentPageSpan = document.getElementById('current-page');
+    const totalPagesSpan = document.getElementById('total-pages');
+
+    currentPageSpan.textContent = currentPage;
+    totalPagesSpan.textContent = totalPages;
+
+    prevBtn.disabled = currentPage === 1;
+    nextBtn.disabled = currentPage === totalPages;
 }
 
 function addCourse(button) {
