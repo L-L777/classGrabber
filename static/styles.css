@@ -167,3 +167,22 @@ th {
     border-radius: 4px;
     border: 1px solid #ccc;
 }
+
+/* 预设课程的背景颜色 */
+.course-entry.preset {
+    background-color: #f0f8ff;
+}
+
+/* 禁用输入框样式 */
+input[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.save-remark {
+    margin-right: 5px;
+}
+
+.remove-course {
+    margin-right: 5px;
+}

@@ -41,10 +41,17 @@
             </div>
             <div id="courses-container">
                 {% for course in config.courses %}
-                <div class="course-entry">
-                    <input type="text" name="kcrwdm" placeholder="课程ID" value="{{ course.kcrwdm }}" required>
-                    <input type="text" name="kcmc" placeholder="课程名称" value="{{ course.kcmc }}" required>
-                    <input type="text" name="teacher" placeholder="老师名字" value="{{ course.teacher }}" required>
+                <div class="course-entry {% if course.preset %}preset{% endif %}">
+                    <input type="text" name="kcrwdm" placeholder="课程ID" value="{{ course.kcrwdm }}" required {% if course.preset %}readonly{% endif %}>
+                    <input type="text" name="kcmc" placeholder="课程名称" value="{{ course.kcmc }}" required {% if course.preset %}readonly{% endif %}>
+                    <input type="text" name="teacher" placeholder="老师名字" value="{{ course.teacher }}" required {% if course.preset %}readonly{% endif %}>
+                    <input type="text" name="remark" placeholder="备注" value="{{ course.remark }}">
+                    {% if course.preset %}
+                        <input type="hidden" name="preset" value="true">
+                        <button type="button" class="btn save-remark" onclick="saveRemark({{ course.kcrwdm }})">保存备注</button>
+                    {% else %}
+                        <input type="hidden" name="preset" value="false">
+                    {% endif %}
                     <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
                 </div>
                 {% endfor %}
@@ -60,10 +67,10 @@
                 <thead>
                     <tr>
                         <th>课程ID</th>
-                        <th>课程名称</th>
-                        <th>上课时间及注意事项</th>
+                        <th>课程名称(学分)</th>
+                        <th>上课时间</th>
                         <th>老师名字</th>
-                        <th>课程类型(代码)</th>
+                        <th>注意事项</th>
                         <th>人数限制</th>
                         <th>操作</th>
                     </tr>
@@ -72,16 +79,18 @@
                     {% for course in available_courses %}
                     <tr>
                         <td>{{ course.kcrwdm }}</td>
-                        <td>{{ course.kcmc }}</td>
-                        <td>{{ course.xmmc }}</td>
+                        <td>{{ course.kcmc }}({{ course.xf }})</td>
+                        <td>{{ course.time }}</td>
                         <td>{{ course.teamx }}</td>
+                        <td>{{ course.xmmc }}</td>
                         <td>{{ course.pkrs }}</td>
-                        <td>{{ course.kcdlmc }}({{ course.kcdm }})</td>
                         <td>
                             <form action="{{ url_for('add_course') }}" method="post">
-                                <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
-                                <input type="hidden" name="kcmc" value="${course.kcmc}">
-                                <input type="hidden" name="teacher" value="${course.teamx || '未知'}">
+                                <input type="hidden" name="kcrwdm" value="{{ course.kcrwdm }}">
+                                <input type="hidden" name="kcmc" value="{{ course.kcmc }}">
+                                <input type="hidden" name="teacher" value="{{ course.teamx or '未知' }}">
+                                <input type="hidden" name="preset" value="true">
+                                <input type="hidden" name="remark" value="">
                                 <button type="submit" class="btn">添加</button>
                             </form>
                         </td>
@@ -110,7 +119,6 @@
         <h3>日志</h3>
         <p>日志只显示最后100行，完整日志请查看程序 logs 目录下的 latest.log</p>
         <div class="logs">
-            
             <pre id="log-container">{{ logs | safe }}</pre>
         </div>
     </div>

@@ -6,7 +6,7 @@ import webbrowser
 from argparse import ArgumentParser, BooleanOptionalAction
 from datetime import datetime
 from threading import Thread
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 from flask import Flask, jsonify, redirect, render_template, request, url_for
@@ -17,12 +17,13 @@ class Course(BaseModel):
     kcrwdm: int
     kcmc: str
     teacher: str
+    preset: bool = False  # 是否为预设课程
+    remark: Optional[str] = ""  # 备注
 
 
 class Config(BaseModel):
     class AccountConfig(BaseModel):
         cookie: str = ""
-
     account: AccountConfig = AccountConfig()
     delay: float = 0.5
     courses: list[Course] = []
@@ -117,6 +118,8 @@ def add_course() -> Any:
     kcrwdm = request.form.get("kcrwdm")
     kcmc = request.form.get("kcmc")
     teacher = request.form.get("teacher", "未知")  # 默认值为'未知'
+    preset = request.form.get("preset", "false").lower() == "true"  # 获取 preset 标记
+    remark = request.form.get("remark", "")  # 获取备注
 
     # 校验数据
     if not kcrwdm or not kcmc:
@@ -127,17 +130,47 @@ def add_course() -> Any:
     except ValueError:
         return jsonify({"error": "无效课程 ID"}), 400
 
-    # 更新配置
-    course_exists = any(course.kcrwdm == kcrwdm for course in config.courses)
-    if course_exists:
+    # 检查课程是否已存在
+    if any(course.kcrwdm == kcrwdm for course in config.courses):
         return jsonify({"error": "课程已经存在"}), 400
 
     # 添加课程到配置
-    course = Course(kcrwdm=kcrwdm, kcmc=kcmc, teacher=teacher)
+    course = Course(kcrwdm=kcrwdm, kcmc=kcmc, teacher=teacher, preset=preset, remark=remark)
     config.courses.append(course)
     save_config(config)
-    log_message(f"添加课程成功，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}")
-    return jsonify({"success": True, "kcrwdm": kcrwdm, "kcmc": kcmc, "teacher": teacher})
+    log_message(f"添加课程成功，课程ID: {kcrwdm}, 名称: {kcmc}, 老师: {teacher}, 从列表中添加: {preset}")
+    return jsonify({
+        "success": True, 
+        "kcrwdm": kcrwdm, 
+        "kcmc": kcmc, 
+        "teacher": teacher, 
+        "preset": preset,
+        "remark": remark
+    })
+
+
+# 更新备注
+@app.route("/update_remark", methods=["POST"])
+def update_remark() -> Any:
+    kcrwdm = request.form.get("kcrwdm")
+    remark = request.form.get("remark", "")
+
+    if not kcrwdm:
+        return jsonify({"error": "课程ID不能为空"}), 400
+
+    try:
+        kcrwdm = int(kcrwdm)
+    except ValueError:
+        return jsonify({"error": "无效课程 ID"}), 400
+
+    for course in config.courses:
+        if course.kcrwdm == kcrwdm:
+            course.remark = remark
+            save_config(config)
+            log_message(f"更新备注成功，课程ID: {kcrwdm}, 备注: {remark}")
+            return jsonify({"success": True, "remark": remark})
+
+    return jsonify({"error": "未找到对应的课程"}), 404
 
 
 # 抢课功能
@@ -216,7 +249,7 @@ def index() -> Any:
     if os.path.exists(log_file_path):
         with open(log_file_path, "r", encoding="utf-8") as log_file:
             logs = log_file.readlines()[-100:]  # 读取最后100行
-    return render_template("index.html", config=config, logs="".join(logs))
+    return render_template("index.html", config=config, logs="".join(logs), available_courses=[])
 
 
 # 更新配置
@@ -226,14 +259,17 @@ def update_config() -> Any:
     delay = float(request.form.get("delay", 0.5))
 
     try:
-        courses = [
-            Course(kcrwdm=int(kcrwdm), kcmc=kcmc, teacher=teacher)
-            for kcrwdm, kcmc, teacher in zip(
-                request.form.getlist("kcrwdm"),
-                request.form.getlist("kcmc"),
-                request.form.getlist("teacher"),
-            )
-        ]
+        courses = []
+        kcrwdm_list = request.form.getlist("kcrwdm")
+        kcmc_list = request.form.getlist("kcmc")
+        teacher_list = request.form.getlist("teacher")
+        preset_list = request.form.getlist("preset")  # 获取 preset
+        remark_list = request.form.getlist("remark")  # 获取 remark
+
+        for kcrwdm, kcmc, teacher, preset, remark in zip(kcrwdm_list, kcmc_list, teacher_list, preset_list, remark_list):
+            kcrwdm = int(kcrwdm)
+            preset = preset.lower() == "true"
+            courses.append(Course(kcrwdm=kcrwdm, kcmc=kcmc, teacher=teacher, preset=preset, remark=remark))
     except ValueError:
         return {"error": "参数解析失败"}, 400
 

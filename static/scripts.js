@@ -6,6 +6,7 @@ const showDialog = (title, msg) => {
     dialogBody.textContent = msg;
     dialog.showModal();
 }
+
 const showConfirmDialog = (title, msg) => {
     const dialog = document.querySelector('#confirm-dialog');
     const dialogTitle = document.querySelector('#confirm-dialog .dialog-title');
@@ -84,6 +85,8 @@ function addCourseEntry() {
         <input type="text" name="kcrwdm" placeholder="课程ID" required>
         <input type="text" name="kcmc" placeholder="课程名称" required>
         <input type="text" name="teacher" placeholder="老师名字" required>
+        <input type="text" name="remark" placeholder="备注">
+        <input type="hidden" name="preset" value="false">
         <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
     `;
     document.getElementById("courses-container").appendChild(courseEntry);
@@ -153,15 +156,17 @@ function displayCurrentPage() {
             <td>${course.kcrwdm}</td>
             <td>${course.kcmc}</td>
             <td>${course.xmmc}</td>
-            <td>${course.teaxm || '未知'}</td>
+            <td>${course.teaxm}</td>
             <td>${course.kcdlmc}(${course.kcdm})</td>
             <td>${course.pkrs}</td>
             <td>
-                <form id="add-course-form-${course.kcrwdm}" class="add-course-form">
+                <form action="/add_course" method="post">
                     <input type="hidden" name="kcrwdm" value="${course.kcrwdm}">
                     <input type="hidden" name="kcmc" value="${course.kcmc}">
                     <input type="hidden" name="teacher" value="${course.teaxm || '未知'}">
-                    <button type="button" class="btn add-course-btn" onclick="addCourse(this)">添加</button>
+                    <input type="hidden" name="preset" value="true">
+                    <input type="hidden" name="remark" value="">
+                    <button type="submit" class="btn">添加</button>
                 </form>
             </td>
         `;
@@ -210,12 +215,31 @@ function updateCoursesList(course) {
     const coursesContainer = document.getElementById("courses-container");
     const newCourseEntry = document.createElement("div");
     newCourseEntry.className = "course-entry";
-    newCourseEntry.innerHTML = `
-        <input type="text" name="kcrwdm" value="${course.kcrwdm}" readonly>
-        <input type="text" name="kcmc" value="${course.kcmc}" readonly>
-        <input type="text" name="teacher" value="${course.teacher}" readonly>
-        <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
-    `;
+    if (course.preset) {
+        newCourseEntry.classList.add("preset");
+    }
+
+    if (course.preset) {
+        newCourseEntry.innerHTML = `
+            <input type="text" name="kcrwdm" value="${course.kcrwdm}" readonly>
+            <input type="text" name="kcmc" value="${course.kcmc}" readonly>
+            <input type="text" name="teacher" value="${course.teacher}" readonly>
+            <input type="text" name="remark" value="${course.remark}">
+            <input type="hidden" name="preset" value="true">
+            <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
+            <button type="button" class="btn save-remark" onclick="saveRemark(${course.kcrwdm})">保存备注</button>
+        `;
+    } else {
+        newCourseEntry.innerHTML = `
+            <input type="text" name="kcrwdm" value="${course.kcrwdm}" required>
+            <input type="text" name="kcmc" value="${course.kcmc}" required>
+            <input type="text" name="teacher" value="${course.teacher}" required>
+            <input type="text" name="remark" value="${course.remark}">
+            <input type="hidden" name="preset" value="false">
+            <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
+        `;
+    }
+
     coursesContainer.appendChild(newCourseEntry);
     checkCoursesCount();
 }
@@ -268,3 +292,34 @@ function startPolling() {
 }
 
 window.onload = startPolling;
+
+// 新增保存备注功能
+function saveRemark(kcrwdm) {
+    const courseEntry = document.querySelector(`input[name="kcrwdm"][value="${kcrwdm}"]`).parentElement;
+    const remarkInput = courseEntry.querySelector('input[name="remark"]');
+    const remark = remarkInput.value;
+
+    fetch('/update_remark', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'kcrwdm': kcrwdm,
+                'remark': remark
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showDialog('错误', data.error);
+            } else {
+                showDialog('信息', '备注已保存');
+                log_message(`备注已保存，课程ID: ${kcrwdm}, 备注: ${remark}`);
+            }
+        })
+        .catch(error => {
+            console.error('保存备注失败:', error);
+            showDialog('错误', '保存备注失败，请查看控制台错误信息。');
+        });
+}
