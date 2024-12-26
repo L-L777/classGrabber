@@ -4,7 +4,7 @@ import string
 import time
 import webbrowser
 from argparse import ArgumentParser, BooleanOptionalAction
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Thread
 from typing import Any, Optional
 
@@ -25,16 +25,14 @@ class Course(BaseModel):
 
 
 class Config(BaseModel):
-    """
-    配置模型，包含账户信息、延迟时间、偏移量和课程列表。
-    """
     class AccountConfig(BaseModel):
-        cookie: str = ""  # 用户的 Cookie
-
+        cookie: str = ""
+    
     account: AccountConfig = AccountConfig()
-    delay: float = 0.5  # 抢课请求之间的延迟（秒）
-    offset: int = 300    # 偏移量，用于控制抢课的时间窗口
-    courses: list[Course] = []  # 课程列表
+    delay: float = 0.5
+    offset: int = 300
+    start_time: Optional[str] = None
+    courses: list[Course] = []
 
 
 app = Flask(__name__)
@@ -284,6 +282,20 @@ def start_grab_course_task(config: Config) -> None:
     finished = set[int]()  # 记录已成功抢到的课程ID
 
     while task_running:
+        try:
+            # 解析抢课开始时间
+            start_time = datetime.strptime(config.start_time, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return jsonify({"error": "抢课开始时间格式不正确，应为 YYYY-MM-DD HH:MM:SS"}), 400
+        
+        current_time = datetime.now()
+        target_time = start_time - timedelta(seconds=config.offset)
+        
+        if current_time < target_time:
+            log_message(f"当前时间 {current_time.strftime('%Y-%m-%d %H:%M:%S')} 不在预设的抢课时间范围内")
+            time.sleep(0.1)
+            continue
+
         for course in config.courses:
             if len(finished) == len(config.courses):
                 stop_grab_course()
@@ -336,13 +348,15 @@ def index() -> Any:
 @app.route("/update_config", methods=["POST"])
 def update_config() -> Any:
     """
-    更新应用的配置，包括 Cookie、延迟时间和课程列表。
-
+    更新应用的配置，包括 Cookie、延迟时间、偏移量、抢课开始时间和课程列表。
+    
     Returns:
         Any: 重定向到首页的响应。
     """
     cookie = request.form.get("cookie") or ""
     delay = float(request.form.get("delay", 0.5))
+    start_time = request.form.get("start_time") + ":00"  # 获取抢课开始时间
+    offset = int(request.form.get("offset", 300))  # 获取偏移量，默认300秒
 
     try:
         courses = []
@@ -372,6 +386,8 @@ def update_config() -> Any:
     # 更新配置对象
     config.account.cookie = cookie
     config.delay = delay
+    config.offset = offset
+    config.start_time = start_time
     config.courses = courses
 
     save_config(config)
@@ -606,13 +622,24 @@ async def process_course_detail(data: dict | list) -> dict:
 @app.route("/start", methods=["POST"])
 async def start_grab_course_route() -> Any:
     """
-    启动抢课任务的路由。
-
+    启动抢课任务的路由。检查当前时间是否在预设的抢课时间范围内。
+    
     Returns:
-        Any: 启动成功的 JSON 响应。
+        Any: 启动结果的 JSON 响应。
     """
+    if not config.start_time:
+        return jsonify({"error": "未设置抢课开始时间"}), 400
+    
+    try:
+        # 解析抢课开始时间
+        start_time = datetime.strptime(config.start_time, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return jsonify({"error": "抢课开始时间格式不正确，应为 YYYY-MM-DD HH:MM:SS"}), 400
+        
+    # 启动抢课任务线程
     start_grab_course_thread()
     return jsonify({"message": "抢课已开始"}), 200
+
 
 
 @app.route("/stop", methods=["POST"])

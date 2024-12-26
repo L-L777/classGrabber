@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("fetch-courses-btn").addEventListener("click", fetchCourses);
     document.getElementById("start-qk-btn").addEventListener("click", start);
     document.getElementById("stop-qk-btn").addEventListener("click", stop);
+    document.getElementById("save-config-btn").addEventListener("click", saveGrabCourseConfig);
     checkCoursesCount();
 
     // 添加分页控件的事件监听
@@ -189,69 +190,17 @@ function updatePagination() {
     nextBtn.disabled = currentPage === totalPages;
 }
 
-function addCourse(button) {
-    const form = button.closest('form');
-    const formData = new FormData(form);
-
-    fetch('/add_course', {
-            method: 'POST',
-            body: new URLSearchParams(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                showDialog('错误', data.error);
-            } else {
-                showDialog('信息', '课程添加成功');
-                updateCoursesList(data);
-            }
-        })
-        .catch(error => {
-            console.error('添加课程失败:', error);
-            showDialog('错误', '添加课程失败，请查看控制台错误信息。');
-        });
-}
-
-function updateCoursesList(course) {
-    const coursesContainer = document.getElementById("courses-container");
-    const newCourseEntry = document.createElement("div");
-    newCourseEntry.className = "course-entry";
-    if (course.preset) {
-        newCourseEntry.classList.add("preset");
-    }
-
-    if (course.preset) {
-        newCourseEntry.innerHTML = `
-            <input type="text" name="kcrwdm" value="${course.kcrwdm}" readonly>
-            <input type="text" name="kcmc" value="${course.kcmc}" readonly>
-            <input type="text" name="teacher" value="${course.teacher}" readonly>
-            <input type="text" name="remark" value="${course.remark}">
-            <input type="hidden" name="preset" value="true">
-            <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
-            <button type="button" class="btn save-remark" onclick="saveRemark(${course.kcrwdm})">保存备注</button>
-        `;
-    } else {
-        newCourseEntry.innerHTML = `
-            <input type="text" name="kcrwdm" value="${course.kcrwdm}" required>
-            <input type="text" name="kcmc" value="${course.kcmc}" required>
-            <input type="text" name="teacher" value="${course.teacher}" required>
-            <input type="text" name="remark" value="${course.remark}">
-            <input type="hidden" name="preset" value="false">
-            <button type="button" class="btn remove-course" onclick="this.parentElement.remove()">-</button>
-        `;
-    }
-
-    coursesContainer.appendChild(newCourseEntry);
-    checkCoursesCount();
-}
-
 function start() {
     fetch('/start', {
             method: 'POST',
         })
         .then(response => response.json())
         .then(data => {
-            showDialog('信息', data.message);
+            if (data.error) {
+                showDialog('错误', data.error);
+            } else {
+                showDialog('信息', data.message);
+            }
         })
         .catch(error => {
             console.error('启动抢课失败:', error);
@@ -277,8 +226,8 @@ async function fetchLogs() {
     try {
         let response = await fetch('/latest_log');
         let data = await response.json();
-        let logContainer = document.getElementById('log-container');
-        logContainer.innerText = data.logs;
+        let logContainer = document.getElementById('log-shell');
+        logContainer.innerHTML = "<pre>" + data.logs + "</pre>";
 
         // 自动滚动到底部
         logContainer.scrollTop = logContainer.scrollHeight;
@@ -352,11 +301,58 @@ function saveRemark(kcrwdm) {
                 showDialog('错误', data.error);
             } else {
                 showDialog('信息', '备注已保存');
-                log_message(`备注已保存，课程ID: ${kcrwdm}, 备注: ${remark}`);
             }
         })
         .catch(error => {
             console.error('保存备注失败:', error);
             showDialog('错误', '保存备注失败，请查看控制台错误信息。');
+        });
+}
+
+// 新增：保存抢课配置功能
+function saveGrabCourseConfig() {
+    const startTimeInput = document.getElementById("start-time").value;
+    const offsetInput = document.getElementById("offset").value;
+
+    if (!startTimeInput) {
+        showDialog('错误', '请设置抢课开始时间。');
+        return;
+    }
+
+    if (!offsetInput || isNaN(offsetInput) || parseInt(offsetInput) < 0) {
+        showDialog('错误', '请设置有效的抢课提前时间（秒）。');
+        return;
+    }
+
+    // 获取表单数据
+    const form = document.getElementById("config-form");
+    const formData = new FormData(form);
+
+    // 添加或更新 start_time 和 offset
+    formData.set('start_time', startTimeInput.replace('T', ' ')); // 转换为 "YYYY-MM-DD HH:MM:SS" 格式
+    formData.set('offset', offsetInput);
+
+    // 发送保存配置的请求
+    fetch('/update_config', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = response.url; // 重定向到首页
+            } else {
+                return response.json();
+            }
+        })
+        .then(data => {
+            if (data && data.error) {
+                showDialog('错误', data.error);
+            } else {
+                showDialog('信息', '抢课配置已保存');
+            }
+        })
+        .catch(error => {
+            console.error('保存抢课配置失败:', error);
+            showDialog('错误', '保存抢课配置失败，请查看控制台错误信息。');
         });
 }
