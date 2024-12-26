@@ -155,10 +155,9 @@ function displayCurrentPage() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${course.kcrwdm}</td>
-            <td>${course.kcmc}</td>
+            <td>${course.kcmc} (${course.xf}分)</td>
             <td>${course.xmmc}</td>
             <td>${course.teaxm}</td>
-            <td>${course.kcdlmc}(${course.kcdm})</td>
             <td>${course.pkrs}</td>
             <td>
                 <form action="/add_course" method="post">

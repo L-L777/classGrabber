@@ -78,9 +78,8 @@
                     <tr>
                         <th>课程ID</th>
                         <th>课程名称(学分)</th>
-                        <th>上课时间</th>
-                        <th>老师名字</th>
                         <th>注意事项</th>
+                        <th>老师名字</th>
                         <th>人数限制</th>
                         <th>操作</th>
                     </tr>
@@ -89,15 +88,14 @@
                     {% for course in available_courses %}
                     <tr>
                         <td>{{ course.kcrwdm }}</td>
-                        <td>{{ course.kcmc }}({{ course.xf }})</td>
+                        <td>{{ course.kcmc }}({{ course.xf }}分)</td>
                         <td>{{ course.time }}</td>
                         <td>{{ course.teamx }}</td>
-                        <td>{{ course.xmmc }}</td>
                         <td>{{ course.pkrs }}</td>
                         <td>
                             <form action="{{ url_for('add_course') }}" method="post">
                                 <input type="hidden" name="kcrwdm" value="{{ course.kcrwdm }}">
-                                <input type="hidden" name="kcmc" value="{{ course.kcmc }}">
+                                <input type="hidden" name="kcmc" value="{{ course.kcmc }}({{ course.xf }})">
                                 <input type="hidden" name="teacher" value="{{ course.teamx or '未知' }}">
                                 <input type="hidden" name="preset" value="true">
                                 <input type="hidden" name="remark" value="">
