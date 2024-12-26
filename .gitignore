@@ -10,3 +10,6 @@ bin
 pyvenv.cfg
 lib
 lib64
+
+# IDE
+.vscode

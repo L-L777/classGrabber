@@ -3,7 +3,7 @@ const showDialog = (title, msg) => {
     const dialogTitle = document.querySelector('#dialog .dialog-title');
     const dialogBody = document.querySelector('#dialog .dialog-content');
     dialogTitle.textContent = title;
-    dialogBody.textContent = msg;
+    dialogBody.innerHTML = msg;
     dialog.showModal();
 }
 
@@ -114,7 +114,7 @@ function fetchCourses() {
         showDialog('提示', "请先输入 Cookie");
         return;
     }
-
+    // showDialog('信息', "正在获取课程，请耐心等待，获取时间视课程量而定");
     fetch('/fetch_courses', {
             method: 'POST',
             headers: {
@@ -167,6 +167,7 @@ function displayCurrentPage() {
                     <input type="hidden" name="preset" value="true">
                     <input type="hidden" name="remark" value="">
                     <button type="submit" class="btn">添加</button>
+                    <button type="button" class="btn show-detail" onclick="showDetail(${course.kcrwdm})">详细信息</button>
                 </form>
             </td>
         `;
@@ -286,6 +287,42 @@ async function fetchLogs() {
     }
 }
 
+function showDetail(courseId) {
+    fetch('/fetch_course_detail', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            courseId: courseId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Received data:', data); // 调试信息
+        if (data.success) {
+            const courseDetail = data.data;
+            console.log('Course Detail:', courseDetail); // 调试信息
+            const detailHTML = `
+                <p><strong>课程名称:</strong> ${courseDetail.course_name || 'N/A'}</p>
+                <p><strong>学期:</strong> ${courseDetail.term || 'N/A'}</p>
+                <p><strong>教学方式:</strong> ${courseDetail.teach_style || 'N/A'}</p>
+                <p><strong>教师:</strong> ${courseDetail.teacher_name || 'N/A'}</p>
+                <p><strong>教室类别:</strong> ${courseDetail.location_type || 'N/A'}</p>
+                <p><strong>上课地点:</strong> ${courseDetail.location || 'N/A'}</p>
+                <p><strong>上课时间:</strong> ${courseDetail.course_time || 'N/A'}</p>
+            `;
+            showDialog('课程详细信息', detailHTML);
+        } else {
+            showDialog('错误', `获取课程详细信息失败: ${data.msg}`);
+        }
+    })
+    .catch(error => {
+        console.error('获取课程详细信息失败:', error);
+        showDialog('错误', '获取课程详细信息失败，请查看控制台错误信息。');
+    });
+}
+
 function startPolling() {
     fetchLogs();
     setInterval(fetchLogs, 500); // 每0.5秒刷新一次
@@ -293,7 +330,7 @@ function startPolling() {
 
 window.onload = startPolling;
 
-// 新增保存备注功能
+// 保存备注功能
 function saveRemark(kcrwdm) {
     const courseEntry = document.querySelector(`input[name="kcrwdm"][value="${kcrwdm}"]`).parentElement;
     const remarkInput = courseEntry.querySelector('input[name="remark"]');
