@@ -1,4 +1,5 @@
 secret
+Flask==3.0.3
 flask[async]
 httpx
 pydantic>=2,<3
